@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DevEnv Sandbox</title>
+  <script src="https://cdn.jsdelivr.net/npm/xterm@5/lib/xterm.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5/css/xterm.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0a0a0f;
+      color: #e2e8f0;
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 20px 40px;
+    }
+
+    /* ── HEADER ── */
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(6,182,212,0.08);
+      border: 1px solid rgba(6,182,212,0.2);
+      color: #06b6d4;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-bottom: 16px;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: 0.3px;
+    }
+    .header-badge::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #06b6d4;
+      box-shadow: 0 0 6px #06b6d4;
+      animation: blink 2s infinite;
+    }
+    .header h1 {
+      font-size: 34px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -1px;
+      margin-bottom: 10px;
+    }
+    .header h1 span {
+      color: #cbd5e1;
+      font-weight: 600;
+      letter-spacing: 1px;
+      opacity: 0.85;
+    }
+    .header p {
+      font-size: 14px;
+      color: #475569;
+      max-width: 400px;
+      margin: 0 auto 20px;
+      line-height: 1.6;
+    }
+    .tech-pills {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .pill {
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 500;
+      border: 1px solid #1e1e2e;
+      color: #475569;
+      background: #13131f;
+    }
+    .pill.c { border-color: rgba(6,182,212,0.25); color: #06b6d4; background: rgba(6,182,212,0.05); }
+    .pill.g { border-color: rgba(16,185,129,0.25); color: #10b981; background: rgba(16,185,129,0.05); }
+    .pill.a { border-color: rgba(245,158,11,0.25); color: #f59e0b; background: rgba(245,158,11,0.05); }
+
+    /* ── MAIN CONTAINER ── */
+    .container {
+      width: 100%;
+      max-width: 800px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* ── INPUT CARD ── */
+    .input-card {
+      background: #0f0f1a;
+      border: 1px solid #1e1e2e;
+      border-radius: 14px;
+      padding: 20px;
+    }
+    .card-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: #2a3a4a;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 10px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .input-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    input[type="text"] {
+      flex: 1;
+      min-width: 200px;
+      padding: 11px 14px;
+      font-size: 13px;
+      font-family: 'JetBrains Mono', monospace;
+      border-radius: 9px;
+      border: 1px solid #1e1e2e;
+      background: #0a0a0f;
+      color: #e2e8f0;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    input[type="text"]:focus {
+      border-color: #06b6d4;
+      box-shadow: 0 0 0 3px rgba(6,182,212,0.08);
+    }
+    input[type="text"]::placeholder { color: #1e2a3a; }
+
+    select {
+      padding: 11px 12px;
+      font-size: 13px;
+      font-family: 'JetBrains Mono', monospace;
+      border-radius: 9px;
+      border: 1px solid #1e1e2e;
+      background: #0a0a0f;
+      color: #e2e8f0;
+      outline: none;
+      cursor: pointer;
+      display: none;
+    }
+    select.visible { display: block; }
+    select:focus { border-color: #06b6d4; }
+
+    .btn-row {
+      display: flex;
+      gap: 7px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+    button {
+      padding: 9px 16px;
+      font-size: 12px;
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    button:hover { transform: translateY(-1px); filter: brightness(1.1); }
+    button:active { transform: translateY(0); filter: none; }
+    button:disabled { opacity: 0.3; cursor: not-allowed; transform: none; filter: none; }
+
+    #scanBtn { background: linear-gradient(135deg, #06b6d4, #3b82f6); color: #fff; font-weight: 700; }
+    #runBtn  { background: #10b981; color: #fff; display: none; }
+    #stopBtn { background: #13131f; color: #ef4444; border: 1px solid #2a1515; display: none; }
+    #openBtn { background: #13131f; color: #06b6d4; border: 1px solid #0e2535; display: none; }
+    #shareBtn{ background: #13131f; color: #f59e0b; border: 1px solid #2a1e08; display: none; }
+
+    /* ── STATUS ── */
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 14px;
+      border-radius: 9px;
+      background: #0f0f1a;
+      border: 1px solid #1e1e2e;
+      font-size: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      color: #2a3a4a;
+    }
+    .status-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #1e2030;
+      flex-shrink: 0;
+      transition: all 0.3s;
+    }
+    .status-bar.active .status-dot { background: #06b6d4; box-shadow: 0 0 6px #06b6d4; animation: blink 1.4s infinite; }
+    .status-bar.active #statusText { color: #06b6d4; }
+    .status-bar.error  .status-dot { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
+    .status-bar.error  #statusText { color: #ef4444; }
+    .status-bar.info   .status-dot { background: #10b981; box-shadow: 0 0 6px #10b981; }
+    .status-bar.info   #statusText { color: #10b981; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    /* ── SHARE BOX ── */
+    .share-box {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: rgba(6,182,212,0.04);
+      border: 1px solid rgba(6,182,212,0.15);
+      border-radius: 9px;
+      flex-wrap: wrap;
+    }
+    .share-box.visible { display: flex; }
+    .share-label { font-size: 11px; color: #334155; font-family: 'JetBrains Mono', monospace; white-space: nowrap; }
+    .share-box a { color: #06b6d4; font-size: 12px; font-family: 'JetBrains Mono', monospace; text-decoration: none; flex: 1; word-break: break-all; }
+    .share-box a:hover { text-decoration: underline; }
+    .copy-btn {
+      padding: 5px 12px; font-size: 11px;
+      background: rgba(6,182,212,0.08); color: #06b6d4;
+      border: 1px solid rgba(6,182,212,0.2);
+      border-radius: 6px; cursor: pointer;
+      font-family: 'Inter', sans-serif; font-weight: 600; white-space: nowrap;
+    }
+    .copy-btn:hover { background: rgba(6,182,212,0.15); }
+
+    /* ── TERMINAL ── */
+    .terminal-card {
+      background: #080810;
+      border: 1px solid #1e1e2e;
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .terminal-header {
+      padding: 10px 16px;
+      border-bottom: 1px solid #1e1e2e;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #0f0f1a;
+    }
+    .t-dots { display: flex; gap: 6px; align-items: center; }
+    .t-dot { width: 11px; height: 11px; border-radius: 50%; }
+    .t-dot.r { background: #2a1010; border: 1px solid #ef444433; }
+    .t-dot.y { background: #2a1e08; border: 1px solid #f59e0b33; }
+    .t-dot.g { background: #0a1e12; border: 1px solid #10b98133; }
+    .t-title { font-size: 11px; color: #2a3040; font-family: 'JetBrains Mono', monospace; margin-left: 8px; }
+    .t-meta  { font-size: 10px; color: #1e2a3a; font-family: 'JetBrains Mono', monospace; }
+    .terminal-body { padding: 4px; }
+
+    /* ── FOOTER ── */
+    .footer {
+      margin-top: 24px;
+      font-size: 11px;
+      color: #1e2a3a;
+      font-family: 'JetBrains Mono', monospace;
+      display: flex;
+      gap: 20px;
+    }
+    .footer a { color: #2a3a4a; text-decoration: none; }
+    .footer a:hover { color: #475569; }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-badge">Docker-powered execution</div>
+    <h1>DevEnv <span>Sandbox</span></h1>
+    <p>Paste a public GitHub URL — we clone it, detect the stack, spin up an isolated container, and stream output live.</p>
+
+  </div>
+
+  <!-- CONTAINER -->
+  <div class="container">
+
+    <div class="input-card">
+      <div class="card-label">// Repository URL</div>
+      <div class="input-row">
+        <input type="text" id="repoUrl" placeholder="https://github.com/user/repo" />
+        <select id="folderSelect"></select>
+      </div>
+      <div class="btn-row">
+        <button id="scanBtn" onclick="scanRepo()">🔎 Scan Repo</button>
+        <button id="runBtn" onclick="runSelected()">▶ Run</button>
+        <button id="stopBtn" onclick="stopContainer()">■ Stop</button>
+        <button id="openBtn" onclick="window.open('http://localhost:4000','_blank')">↗ Open App</button>
+        <button id="shareBtn" onclick="shareOutput()">⎘ Share Output</button>
+      </div>
+    </div>
+
+    <div class="status-bar" id="statusBar">
+      <div class="status-dot"></div>
+      <span id="statusText">idle — paste a GitHub URL and click Scan</span>
+    </div>
+
+    <div class="share-box" id="shareBox">
+      <span class="share-label">link:</span>
+      <a id="shareLink" href="#" target="_blank"></a>
+      <button class="copy-btn" onclick="copyLink()">copy</button>
+    </div>
+
+    <div class="terminal-card">
+      <div class="terminal-header">
+        <div class="t-dots">
+          <div class="t-dot r"></div>
+          <div class="t-dot y"></div>
+          <div class="t-dot g"></div>
+          <span class="t-title">sandbox ~ output</span>
+        </div>
+        <span class="t-meta">docker · isolated · live</span>
+      </div>
+      <div class="terminal-body">
+        <div id="terminal"></div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>node.js · docker · websockets</span>
+      <a href="https://github.com" target="_blank">github →</a>
+    </div>
+
+  </div>
+
+  <script>
+    const term = new Terminal({
+      theme: {
+        background: '#080810',
+        foreground: '#94a3b8',
+        cursor: '#06b6d4',
+        selectionBackground: 'rgba(6,182,212,0.15)',
+        black:'#080810', brightBlack:'#334155',
+        green:'#10b981', brightGreen:'#34d399',
+        yellow:'#f59e0b', brightYellow:'#fbbf24',
+        blue:'#06b6d4', brightBlue:'#67e8f9',
+        cyan:'#06b6d4', brightCyan:'#67e8f9',
+        red:'#ef4444', brightRed:'#f87171',
+        white:'#94a3b8', brightWhite:'#e2e8f0',
+      },
+      cols: 110, rows: 26,
+      fontSize: 13,
+      fontFamily: "'JetBrains Mono', monospace",
+      lineHeight: 1.5,
+      cursorBlink: true,
+    });
+    term.open(document.getElementById('terminal'));
+    term.writeln('\x1b[38;5;240m// waiting for input\x1b[0m');
+
+    let currentSessionId=null, currentRepoUrl='', currentCmd='';
+    let currentServerApp=false, ws=null, collectedOutput='', detectedFolders=[];
+
+    function setStatus(msg, type='') {
+      document.getElementById('statusText').textContent = msg;
+      document.getElementById('statusBar').className = 'status-bar ' + type;
+    }
+
+    async function scanRepo() {
+      const repoUrl = document.getElementById('repoUrl').value.trim();
+      if (!repoUrl) { setStatus('enter a URL first', 'error'); return; }
+      currentRepoUrl = repoUrl; collectedOutput = '';
+      term.clear();
+      term.writeln('\x1b[36m$ git clone ' + repoUrl + '\x1b[0m');
+      setStatus('cloning and scanning...', 'active');
+      document.getElementById('scanBtn').disabled = true;
+      document.getElementById('runBtn').style.display = 'none';
+      document.getElementById('folderSelect').classList.remove('visible');
+      document.getElementById('shareBox').classList.remove('visible');
+      document.getElementById('shareBtn').style.display = 'none';
+      document.getElementById('openBtn').style.display = 'none';
+      try {
+        const res = await fetch('/scan', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({repoUrl}) });
+        const data = await res.json();
+        if (data.error) { term.writeln('\x1b[31merror: ' + data.error + '\x1b[0m'); setStatus('scan failed — check the URL', 'error'); document.getElementById('scanBtn').disabled=false; return; }
+        currentSessionId = data.sessionId;
+        detectedFolders = data.folders;
+        if (!detectedFolders.length) { term.writeln('\x1b[33mno runnable entry point found\x1b[0m'); setStatus('nothing runnable detected', 'error'); document.getElementById('scanBtn').disabled=false; return; }
+        const sel = document.getElementById('folderSelect');
+        sel.innerHTML = '';
+        detectedFolders.forEach((f,i) => { const o=document.createElement('option'); o.value=i; o.textContent=f.label; sel.appendChild(o); });
+        if (detectedFolders.length > 1) {
+          sel.classList.add('visible');
+          term.writeln('\x1b[32m✓ found ' + detectedFolders.length + ' targets: ' + detectedFolders.map(f=>f.label).join(', ') + '\x1b[0m');
+          term.writeln('\x1b[38;5;240m# select a folder and click Run\x1b[0m');
+          setStatus('select a folder to run', 'info');
+        } else {
+          term.writeln('\x1b[32m✓ detected: ' + detectedFolders[0].label + '\x1b[0m');
+          setStatus('ready → ' + detectedFolders[0].label, 'info');
+        }
+        document.getElementById('runBtn').style.display = 'inline-flex';
+        document.getElementById('scanBtn').disabled = false;
+      } catch(err) { term.writeln('\x1b[31m' + err.message + '\x1b[0m'); setStatus('error', 'error'); document.getElementById('scanBtn').disabled=false; }
+    }
+
+    async function runSelected() {
+      if (!currentSessionId || !detectedFolders.length) return;
+      const idx = parseInt(document.getElementById('folderSelect').value)||0;
+      const selected = detectedFolders[idx];
+      currentCmd = selected.cmd;
+      const res = await fetch('/run', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({sessionId:currentSessionId, cmd:currentCmd}) });
+      currentServerApp = (await res.json()).serverApp;
+      term.clear();
+      term.writeln('\x1b[36m$ docker run sandbox-env (' + selected.label + ')\x1b[0m\n');
+      setStatus('container running...', 'active');
+      document.getElementById('runBtn').style.display='none';
+      document.getElementById('scanBtn').disabled=true;
+      document.getElementById('stopBtn').style.display='inline-flex';
+      document.getElementById('folderSelect').classList.remove('visible');
+      document.getElementById('openBtn').style.display='none';
+      document.getElementById('shareBtn').style.display='none';
+      document.getElementById('shareBox').classList.remove('visible');
+      collectedOutput='';
+      ws = new WebSocket(`ws://localhost:3000?session=${currentSessionId}&cmd=${encodeURIComponent(currentCmd)}`);
+      ws.onmessage = (e) => {
+        if (e.data==='__APP_RUNNING__') { if(currentServerApp){ document.getElementById('openBtn').style.display='inline-flex'; setStatus('app is live — click Open App', 'active'); term.writeln('\r\n\x1b[32m✓ app running — click Open App above\x1b[0m\r\n'); } return; }
+        if (e.data.startsWith('__CONTAINER_DONE__')) { try{ collectedOutput=JSON.parse(e.data.replace('__CONTAINER_DONE__','')).output; }catch{} document.getElementById('shareBtn').style.display='inline-flex'; return; }
+        term.write(e.data); collectedOutput+=e.data;
+      };
+      ws.onclose = () => { setStatus('container finished', ''); resetButtons(); };
+      ws.onerror = () => { setStatus('connection error', 'error'); resetButtons(); };
+    }
+
+    async function stopContainer() {
+      if (!currentSessionId) return;
+      setStatus('stopping...', '');
+      await fetch('/stop', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({sessionId:currentSessionId}) });
+      term.writeln('\r\n\x1b[33m⚠ stopped by user\x1b[0m');
+      collectedOutput+='\nstopped by user.';
+      if(ws) ws.close();
+      document.getElementById('shareBtn').style.display='inline-flex';
+      resetButtons();
+    }
+
+    async function shareOutput() {
+      if (!collectedOutput) return;
+      try {
+        const res = await fetch('/save-output', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({output:collectedOutput, repoUrl:currentRepoUrl}) });
+        const data = await res.json();
+        const url = `http://localhost:3000${data.url}`;
+        document.getElementById('shareLink').href=url;
+        document.getElementById('shareLink').textContent=url;
+        document.getElementById('shareBox').classList.add('visible');
+        setStatus('share link generated', 'info');
+      } catch { setStatus('share failed', 'error'); }
+    }
+
+    function copyLink() {
+      navigator.clipboard.writeText(document.getElementById('shareLink').textContent).then(() => {
+        const b=document.querySelector('.copy-btn'); b.textContent='✓ copied'; setTimeout(()=>b.textContent='copy',2000);
+      });
+    }
+
+    function resetButtons() {
+      document.getElementById('scanBtn').disabled=false;
+      document.getElementById('stopBtn').style.display='none';
+      document.getElementById('runBtn').style.display='none';
+      document.getElementById('folderSelect').classList.remove('visible');
+      currentSessionId=null;
+    }
+  </script>
+</body>
+</html>
