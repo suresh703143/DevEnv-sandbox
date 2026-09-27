@@ -1,6 +1,6 @@
-FROM docker:24-dind
+FROM node:18-alpine
 
-RUN apk add --no-cache nodejs npm git
+RUN apk add --no-cache docker-cli git
 
 WORKDIR /app
 
