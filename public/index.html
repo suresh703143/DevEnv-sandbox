@@ -295,7 +295,7 @@
         <button id="scanBtn" onclick="scanRepo()">🔎 Scan Repo</button>
         <button id="runBtn" onclick="runSelected()">▶ Run</button>
         <button id="stopBtn" onclick="stopContainer()">■ Stop</button>
-        <button id="openBtn" onclick="window.open('http://localhost:4000','_blank')">↗ Open App</button>
+        <button id="openBtn" onclick="window.open(serverConfig.appUrl,'_blank')">↗ Open App</button>
         <button id="shareBtn" onclick="shareOutput()">⎘ Share Output</button>
       </div>
     </div>
@@ -402,6 +402,10 @@
       } catch(err) { term.writeln('\x1b[31m' + err.message + '\x1b[0m'); setStatus('error', 'error'); document.getElementById('scanBtn').disabled=false; }
     }
 
+    // Fetch server config once on load
+    let serverConfig = { appUrl: 'http://localhost:4000', isProduction: false };
+    fetch('/config').then(r => r.json()).then(c => serverConfig = c).catch(() => {});
+
     async function runSelected() {
       if (!currentSessionId || !detectedFolders.length) return;
       const idx = parseInt(document.getElementById('folderSelect').value)||0;
@@ -422,7 +426,7 @@
       collectedOutput='';
       ws = new WebSocket(`ws://localhost:3000?session=${currentSessionId}&cmd=${encodeURIComponent(currentCmd)}`);
       ws.onmessage = (e) => {
-        if (e.data==='__APP_RUNNING__') { if(currentServerApp){ document.getElementById('openBtn').style.display='inline-flex'; setStatus('app is live — click Open App', 'active'); term.writeln('\r\n\x1b[32m✓ app running — click Open App above\x1b[0m\r\n'); } return; }
+        if (e.data==='__APP_RUNNING__') { if(currentServerApp){ if(serverConfig.isProduction){ term.writeln('\r\n\x1b[33m⚠ Open App not available on hosted version — use locally for live preview\x1b[0m\r\n'); } else { document.getElementById('openBtn').style.display='inline-flex'; } setStatus('app is live — click Open App', 'active'); term.writeln('\r\n\x1b[32m✓ app running — click Open App above\x1b[0m\r\n'); } return; }
         if (e.data.startsWith('__CONTAINER_DONE__')) { try{ collectedOutput=JSON.parse(e.data.replace('__CONTAINER_DONE__','')).output; }catch{} document.getElementById('shareBtn').style.display='inline-flex'; return; }
         term.write(e.data); collectedOutput+=e.data;
       };
@@ -446,7 +450,7 @@
       try {
         const res = await fetch('/save-output', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({output:collectedOutput, repoUrl:currentRepoUrl}) });
         const data = await res.json();
-        const url = `http://localhost:3000${data.url}`;
+        const url = data.fullUrl || `${window.location.origin}${data.url}`;
         document.getElementById('shareLink').href=url;
         document.getElementById('shareLink').textContent=url;
         document.getElementById('shareBox').classList.add('visible');

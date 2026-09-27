@@ -19,6 +19,19 @@ const wss = new WebSocketServer({ server });
 const activeContainers = {};
 const savedOutputs = {};
 
+// PORT config — uses environment variable on Render, 3000 locally
+const PORT = process.env.PORT || 3000;
+
+// Public base URL — set this on Render as environment variable
+// e.g. https://devenv-sandbox.onrender.com
+// Locally it falls back to localhost
+const PUBLIC_URL = process.env.PUBLIC_URL || `http://localhost:${PORT}`;
+
+// App port that containers expose — on Render we can't use 4000
+// so we use a dynamic port or just use the same server port via a proxy approach
+// For simplicity: locally use 4000, on Render we proxy through the main server
+const IS_PRODUCTION = !!process.env.PUBLIC_URL;
+
 function toDockerPath(p) {
   return p.replace(/\\/g, '/');
 }
@@ -46,20 +59,16 @@ function getRunCommand(dir) {
   return null;
 }
 
-// Returns all runnable folders in the repo
 function detectAllRunnableFolders(cloneDir) {
   const results = [];
 
-  // Check root
   const rootCmd = getRunCommand(cloneDir);
   if (rootCmd) results.push({ label: 'Root', cmd: rootCmd, subdir: null });
 
-  // Check subfolders
   const subfolders = fs.readdirSync(cloneDir)
     .filter(f => {
-      try {
-        return fs.statSync(path.join(cloneDir, f)).isDirectory() && !f.startsWith('.');
-      } catch { return false; }
+      try { return fs.statSync(path.join(cloneDir, f)).isDirectory() && !f.startsWith('.'); }
+      catch { return false; }
     });
 
   for (const folder of subfolders) {
@@ -83,7 +92,6 @@ function isServerCmd(cmd) {
     !cmd.includes('mvn');
 }
 
-// Scan repo and return all runnable folders
 app.post('/scan', async (req, res) => {
   const { repoUrl } = req.body;
   if (!repoUrl) return res.status(400).json({ error: 'repoUrl required' });
@@ -100,7 +108,6 @@ app.post('/scan', async (req, res) => {
   }
 });
 
-// Run with a specific command chosen by user
 app.post('/run', async (req, res) => {
   const { sessionId, cmd } = req.body;
   if (!sessionId || !cmd) return res.status(400).json({ error: 'sessionId and cmd required' });
@@ -133,7 +140,7 @@ app.post('/save-output', (req, res) => {
     createdAt: new Date().toLocaleString(),
   };
 
-  res.json({ id, url: `/output/${id}` });
+  res.json({ id, url: `/output/${id}`, fullUrl: `${PUBLIC_URL}/output/${id}` });
 });
 
 app.get('/output/:id', (req, res) => {
@@ -150,7 +157,7 @@ app.get('/output/:id', (req, res) => {
     .header { max-width: 900px; margin: 0 auto 24px; }
     h1 { font-size: 18px; margin-bottom: 6px; }
     .meta { font-size: 13px; color: #666; }
-    .meta a { color: #5865f2; text-decoration: none; }
+    .meta a { color: #06b6d4; text-decoration: none; }
     .meta a:hover { text-decoration: underline; }
     pre {
       max-width: 900px; margin: 0 auto;
@@ -159,21 +166,29 @@ app.get('/output/:id', (req, res) => {
       font-family: Menlo, Monaco, monospace; font-size: 13px;
       line-height: 1.6; white-space: pre-wrap; word-break: break-all;
     }
-    .badge { display: inline-block; background: #57f287; color: #000; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; margin-bottom: 16px; }
+    .badge { display: inline-block; background: #06b6d4; color: #000; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; margin-bottom: 16px; }
   </style>
 </head>
 <body>
   <div class="header">
     <div class="badge">DevEnv Sandbox — Output</div>
     <h1>${data.repoUrl}</h1>
-    <p class="meta">Run at ${data.createdAt} · <a href="/">Run your own repo →</a></p>
+    <p class="meta">Run at ${data.createdAt} · <a href="${PUBLIC_URL}">Run your own repo →</a></p>
   </div>
   <pre>${data.output.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
 </body>
 </html>`);
 });
 
-// WebSocket: receives sessionId + cmd chosen by user
+// Send config to frontend so it knows the correct app URL
+app.get('/config', (req, res) => {
+  res.json({
+    appUrl: IS_PRODUCTION ? null : 'http://localhost:4000',
+    isProduction: IS_PRODUCTION,
+    publicUrl: PUBLIC_URL,
+  });
+});
+
 wss.on('connection', async (ws, req) => {
   const params = new URL(req.url, 'http://x').searchParams;
   const sessionId = params.get('session');
@@ -197,13 +212,16 @@ wss.on('connection', async (ws, req) => {
         Binds: [`${dockerCloneDir}:/app`],
         AutoRemove: true,
         Memory: 512 * 1024 * 1024,
-        PortBindings: {
-          '3000/tcp': [{ HostPort: '4000' }],
-          '8080/tcp': [{ HostPort: '4001' }],
-          '5000/tcp': [{ HostPort: '4002' }],
-          '5173/tcp': [{ HostPort: '4003' }],
-          '4173/tcp': [{ HostPort: '4004' }],
-        },
+        // Only bind ports locally — on production we can't expose ports this way
+        ...(!IS_PRODUCTION && {
+          PortBindings: {
+            '3000/tcp': [{ HostPort: '4000' }],
+            '8080/tcp': [{ HostPort: '4001' }],
+            '5000/tcp': [{ HostPort: '4002' }],
+            '5173/tcp': [{ HostPort: '4003' }],
+            '4173/tcp': [{ HostPort: '4004' }],
+          },
+        }),
       },
     });
 
@@ -253,4 +271,4 @@ wss.on('connection', async (ws, req) => {
   }
 });
 
-server.listen(3000, () => console.log('Server on http://localhost:3000'));
+server.listen(PORT, () => console.log(`Server on ${PUBLIC_URL}`));
