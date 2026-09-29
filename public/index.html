@@ -411,7 +411,7 @@
       const idx = parseInt(document.getElementById('folderSelect').value)||0;
       const selected = detectedFolders[idx];
       currentCmd = selected.cmd;
-      const res = await fetch('/run', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({sessionId:currentSessionId, cmd:currentCmd}) });
+      const res = await fetch('/run', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({sessionId:currentSessionId, folderIndex:idx}) });
       currentServerApp = (await res.json()).serverApp;
       term.clear();
       term.writeln('\x1b[36m$ docker run sandbox-env (' + selected.label + ')\x1b[0m\n');
@@ -424,7 +424,9 @@
       document.getElementById('shareBtn').style.display='none';
       document.getElementById('shareBox').classList.remove('visible');
       collectedOutput='';
-      ws = new WebSocket(`ws://localhost:3000?session=${currentSessionId}&cmd=${encodeURIComponent(currentCmd)}`);
+      const wsProto = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const wsHost = window.location.host;
+      ws = new WebSocket(`${wsProto}//${wsHost}?session=${currentSessionId}&folderIndex=${idx}`);
       ws.onmessage = (e) => {
         if (e.data==='__APP_RUNNING__') { if(currentServerApp){ if(serverConfig.isProduction){ term.writeln('\r\n\x1b[33m⚠ Open App not available on hosted version — use locally for live preview\x1b[0m\r\n'); } else { document.getElementById('openBtn').style.display='inline-flex'; } setStatus('app is live — click Open App', 'active'); term.writeln('\r\n\x1b[32m✓ app running — click Open App above\x1b[0m\r\n'); } return; }
         if (e.data.startsWith('__CONTAINER_DONE__')) { try{ collectedOutput=JSON.parse(e.data.replace('__CONTAINER_DONE__','')).output; }catch{} document.getElementById('shareBtn').style.display='inline-flex'; return; }

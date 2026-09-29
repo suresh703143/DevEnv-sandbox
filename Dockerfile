@@ -1,6 +1,6 @@
 FROM node:18-alpine
 
-RUN apk add --no-cache docker-cli git
+RUN apk add --no-cache git python3 make g++ openjdk17-jdk maven
 
 WORKDIR /app
 
