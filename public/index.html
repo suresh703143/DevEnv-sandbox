@@ -428,7 +428,7 @@
       const wsHost = window.location.host;
       ws = new WebSocket(`${wsProto}//${wsHost}?session=${currentSessionId}&folderIndex=${idx}`);
       ws.onmessage = (e) => {
-        if (e.data==='__APP_RUNNING__') { if(currentServerApp){ if(serverConfig.isProduction){ term.writeln('\r\n\x1b[33m⚠ Open App not available on hosted version — use locally for live preview\x1b[0m\r\n'); } else { document.getElementById('openBtn').style.display='inline-flex'; } setStatus('app is live — click Open App', 'active'); term.writeln('\r\n\x1b[32m✓ app running — click Open App above\x1b[0m\r\n'); } return; }
+       if (e.data==='__APP_RUNNING__') { if(currentServerApp){ if(!serverConfig.isProduction){ document.getElementById('openBtn').style.display='inline-flex'; } setStatus('app is live', 'active'); } return; }
         if (e.data.startsWith('__CONTAINER_DONE__')) { try{ collectedOutput=JSON.parse(e.data.replace('__CONTAINER_DONE__','')).output; }catch{} document.getElementById('shareBtn').style.display='inline-flex'; return; }
         term.write(e.data); collectedOutput+=e.data;
       };
